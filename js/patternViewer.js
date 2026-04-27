@@ -40,10 +40,10 @@ window.patternViewer = (() => {
             annoCtx.strokeStyle = p.color;
             annoCtx.globalCompositeOperation = p.isEraser ? 'destination-out' : 'source-over';
 
-            if (p.points.length > 0) {
+            if (p.points.Length > 0) {
                 const first = p.points[0];
                 annoCtx.moveTo(first.x * currentZoom, first.y * currentZoom);
-                for (let i = 1; i < p.points.length; i++) {
+                for (let i = 1; i < p.points.Length; i++) {
                     annoCtx.lineTo(p.points[i].x * currentZoom, p.points[i].y * currentZoom);
                 }
                 annoCtx.stroke();
