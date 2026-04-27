@@ -7,6 +7,19 @@
     <base href="/KnitLog/" />
     <link rel="stylesheet" href="css/app.css" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧶</text></svg>" />
+    <script>
+        // GitHub Pages SPA 라우팅 처리
+        // 현재 경로를 쿼리스트링으로 변환해서 index.html로 리다이렉트
+        var pathSegmentsToKeep = 1; // /KnitLog/ 같은 레포 이름 세그먼트 수
+        var l = window.location;
+        l.replace(
+            l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+            l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
+            l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
+            (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+            l.hash
+        );
+    </script>
 </head>
 <body>
     <div id="app">
@@ -16,14 +29,5 @@
             <div style="font-size:1.1rem;">니트로그 불러오는 중...</div>
         </div>
     </div>
-
-    <div id="blazor-error-ui">
-        오류가 발생했어요.
-        <a href="" class="reload">새로고침</a>
-        <a class="dismiss">✕</a>
-    </div>
-
-    <script src="_framework/blazor.webassembly.js"></script>
-    <script src="js/patternViewer.js"></script>
 </body>
 </html>
