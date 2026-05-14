@@ -1,0 +1,250 @@
+@page "/schedule"
+@using KnitLog.Models
+@using KnitLog.Services
+@inject StorageService Storage
+@inject NavigationManager Nav
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">📆 뜨케줄</h1>
+        <p class="page-subtitle">현재 진행중인 뜨개 프로젝트</p>
+    </div>
+    <button class="btn btn-primary" @onclick="OpenAddModal">+ 새 프로젝트</button>
+</div>
+
+@if (_loading)
+{
+    <div class="loading">불러오는 중...</div>
+}
+else if (_projects.Count == 0)
+{
+    <div class="empty-state">
+        <div class="empty-icon">📆</div>
+        <p>진행중인 프로젝트가 없어요.<br />새 프로젝트를 추가해 보세요!</p>
+    </div>
+}
+else
+{
+    <div class="grid-2">
+        @foreach (var proj in _projects)
+        {
+            <div class="card" style="cursor:pointer;" @onclick="() => GoToDetail(proj.Id)">
+                @if (proj.Photos.Count > 0)
+                {
+                    <img src="@proj.Photos[0].Base64Data" class="photo-thumb"
+                         style="width:100%; height:160px; object-fit:cover; border-radius:var(--radius-sm); margin-bottom:12px;"
+                         alt="프로젝트 사진" />
+                }
+
+                <div class="flex-between mb-1">
+                    <div class="card-title" style="margin-bottom:0;">@proj.Title</div>
+                    <span class="badge badge-progress">진행중</span>
+                </div>
+
+                @if (!string.IsNullOrEmpty(proj.PatternName))
+                {
+                    <div style="font-size:0.82rem; color:var(--text-mid); margin-bottom:4px;">📋 @proj.PatternName</div>
+                }
+                @if (!string.IsNullOrEmpty(proj.Description))
+                {
+                    <p style="font-size:0.85rem; color:var(--text-mid); margin-bottom:10px; white-space:pre-wrap;">@proj.Description</p>
+                }
+
+                <div style="display:flex; gap:12px; font-size:0.8rem; color:var(--text-light); margin-bottom:14px;">
+                    @if (proj.StartDate.HasValue)
+                    {
+                        <span>시작 @proj.StartDate.Value.ToString("yy.MM.dd")</span>
+                    }
+                    @if (proj.EndDate.HasValue)
+                    {
+                        <span>→ @proj.EndDate.Value.ToString("yy.MM.dd") 목표</span>
+                    }
+                </div>
+
+                <div style="display:flex; gap:8px; flex-wrap:wrap;" @onclick:stopPropagation="true">
+                    <button class="btn btn-secondary btn-sm" @onclick="() => OpenEditModal(proj)">✏️ 수정</button>
+                    <button class="btn btn-sm btn-sage" @onclick="() => CompleteProject(proj.Id)">✅ 완료</button>
+                    <button class="btn btn-danger btn-sm" @onclick="() => DeleteProject(proj.Id)">🗑️</button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@if (_showModal)
+{
+    <div class="modal-backdrop" @onclick="CloseModal">
+        <div class="modal" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h2 class="modal-title">@(_editingProject?.Id == Guid.Empty ? "새 프로젝트" : "프로젝트 수정")</h2>
+                <button class="btn btn-ghost btn-sm" @onclick="CloseModal">✕</button>
+            </div>
+
+            @if (_editingProject != null)
+            {
+                <div class="form-group">
+                    <label class="form-label">작품명 *</label>
+                    <input class="form-control" @bind="_editingProject.Title" placeholder="예: 모헤어 가디건" />
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">도안명</label>
+                        <input class="form-control" @bind="_editingProject.PatternName" placeholder="도안 이름" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">도안 출처</label>
+                        <input class="form-control" @bind="_editingProject.PatternSource" placeholder="URL 또는 책 이름" />
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">도안 메모</label>
+                    <textarea class="form-control" rows="2" @bind="_editingProject.PatternMemo" placeholder="도안 관련 메모"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">설명</label>
+                    <textarea class="form-control" rows="3" @bind="_editingProject.Description" placeholder="작품에 대한 설명"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">시작일</label>
+                        <input type="date" class="form-control"
+                               value="@_editingProject.StartDate?.ToString("yyyy-MM-dd")"
+                               @onchange="e => _editingProject.StartDate = string.IsNullOrEmpty(e.Value?.ToString()) ? null : DateTime.Parse(e.Value.ToString()!)" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">목표 종료일</label>
+                        <input type="date" class="form-control"
+                               value="@_editingProject.EndDate?.ToString("yyyy-MM-dd")"
+                               @onchange="e => _editingProject.EndDate = string.IsNullOrEmpty(e.Value?.ToString()) ? null : DateTime.Parse(e.Value.ToString()!)" />
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">과정 사진</label>
+                    <InputFile OnChange="OnPhotoSelected" accept="image/*" multiple class="form-control" style="padding:6px;" />
+                    @if (_editingProject.Photos.Count > 0)
+                    {
+                        <div class="photo-grid mt-1">
+                            @foreach (var photo in _editingProject.Photos)
+                            {
+                                <div style="position:relative;">
+                                    <img src="@photo.Base64Data" class="photo-thumb" alt="과정사진" />
+                                    <button class="btn btn-danger btn-sm"
+                                            style="position:absolute;top:2px;right:2px;padding:2px 5px;font-size:0.7rem;"
+                                            @onclick="() => RemovePhoto(photo.Id)">
+                                        ✕
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">메모</label>
+                    <textarea class="form-control" rows="3" @bind="_editingProject.Memo" placeholder="기타 메모"></textarea>
+                </div>
+            }
+
+            <div class="modal-footer">
+                <button class="btn btn-ghost" @onclick="CloseModal">취소</button>
+                <button class="btn btn-primary" @onclick="SaveProject">저장</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    bool _loading = true;
+    bool _showModal = false;
+    List<KnitProject> _projects = new();
+    KnitProject? _editingProject;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        _loading = false;
+    }
+
+    async Task LoadData()
+    {
+        var all = await Storage.GetProjectsAsync();
+        _projects = all.Where(p => p.Status == ProjectStatus.진행중).ToList();
+    }
+
+    void GoToDetail(Guid id)
+    {
+        Nav.NavigateTo("/schedule/" + id);
+    }
+
+    void OpenAddModal()
+    {
+        _editingProject = new KnitProject
+            {
+                Id = Guid.Empty,
+                Status = ProjectStatus.진행중,
+                StartDate = DateTime.Today
+            };
+        _showModal = true;
+    }
+
+    void OpenEditModal(KnitProject proj)
+    {
+        _editingProject = proj;
+        _showModal = true;
+    }
+
+    void CloseModal()
+    {
+        _showModal = false;
+        _editingProject = null;
+    }
+
+    async Task SaveProject()
+    {
+        if (_editingProject == null || string.IsNullOrWhiteSpace(_editingProject.Title)) return;
+        if (_editingProject.Id == Guid.Empty)
+            _editingProject.Id = Guid.NewGuid();
+        await Storage.SaveProjectAsync(_editingProject);
+        await LoadData();
+        CloseModal();
+    }
+
+    async Task CompleteProject(Guid id)
+    {
+        await Storage.CompleteProjectAsync(id);
+        await LoadData();
+    }
+
+    async Task DeleteProject(Guid id)
+    {
+        await Storage.DeleteProjectAsync(id);
+        await LoadData();
+    }
+
+    async Task OnPhotoSelected(InputFileChangeEventArgs e)
+    {
+        if (_editingProject == null) return;
+        foreach (var file in e.GetMultipleFiles(10))
+        {
+            var buf = new byte[file.Size];
+            await file.OpenReadStream(10 * 1024 * 1024).ReadAsync(buf);
+            var base64 = $"data:{file.ContentType};base64,{Convert.ToBase64String(buf)}";
+            _editingProject.Photos.Add(new ProjectPhoto
+                {
+                    FileName = file.Name,
+                    Base64Data = base64,
+                    TakenAt = DateTime.Now
+                });
+        }
+    }
+
+    void RemovePhoto(Guid photoId)
+    {
+        _editingProject?.Photos.RemoveAll(p => p.Id == photoId);
+    }
+}

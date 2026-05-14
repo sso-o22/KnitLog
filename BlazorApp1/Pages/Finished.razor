@@ -1,0 +1,174 @@
+@* =====================================================================
+   Pages/Finished.razor  —  완성작 갤러리
+   ===================================================================== *@
+@page "/finished"
+@using KnitLog.Models
+@using KnitLog.Services
+@inject StorageService Storage
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">✅ 완성작</h1>
+        <p class="page-subtitle">지금까지 완성한 작품들</p>
+    </div>
+</div>
+
+@if (_loading)
+{
+    <div class="loading">불러오는 중...</div>
+}
+else if (_projects.Count == 0)
+{
+    <div class="empty-state">
+        <div class="empty-icon">🎉</div>
+        <p>아직 완성작이 없어요.<br/>뜨케줄에서 작품을 완성하면 여기로 이동해요!</p>
+    </div>
+}
+else
+{
+    <div class="grid-3">
+        @foreach (var proj in _projects)
+        {
+            <div class="card" style="cursor:pointer;" @onclick="() => OpenDetail(proj)">
+                @if (proj.Photos.Count > 0)
+                {
+                    <img src="@proj.Photos[0].Base64Data"
+                         style="width:100%; height:180px; object-fit:cover; border-radius:var(--radius-sm); margin-bottom:12px;"
+                         alt="완성 사진" />
+                }
+                else
+                {
+                    <div style="width:100%; height:100px; background:#e8e8e8; border-radius:var(--radius-sm);
+                                display:flex; align-items:center; justify-content:center; font-size:2.5rem; margin-bottom:12px;">👕</div>
+                }
+
+                <div class="card-title">@proj.Title</div>
+
+                @if (!string.IsNullOrEmpty(proj.PatternName))
+                {
+                    <div style="font-size:0.8rem; color:var(--text-mid);">@proj.PatternName</div>
+                }
+
+                @if (proj.EndDate.HasValue)
+                {
+                    <div style="font-size:0.78rem; color:var(--text-light); margin-top:6px;">
+                        완성일: @proj.EndDate.Value.ToString("yyyy년 M월 d일")
+                    </div>
+                }
+
+                <!-- 소요 기간 계산 -->
+                @if (proj.StartDate.HasValue && proj.EndDate.HasValue)
+                {
+                    var days = (proj.EndDate.Value - proj.StartDate.Value).Days;
+                    <div style="font-size:0.78rem; color:#8a6a08; margin-top:2px;">
+                        총 @days 소요
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+
+<!-- 상세 모달 -->
+@if (_showDetail && _selectedProject != null)
+{
+    <div class="modal-backdrop" @onclick="CloseDetail">
+        <div class="modal" style="max-width:720px;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h2 class="modal-title">@_selectedProject.Title</h2>
+                <button class="btn btn-ghost btn-sm" @onclick="CloseDetail">✕</button>
+            </div>
+
+            <!-- 사진 갤러리 -->
+            @if (_selectedProject.Photos.Count > 0)
+            {
+                <div class="photo-grid" style="margin-bottom:16px;">
+                    @foreach (var photo in _selectedProject.Photos)
+                    {
+                        <img src="@photo.Base64Data" class="photo-thumb"
+                             style="width:120px; height:120px;" alt="과정 사진" />
+                    }
+                </div>
+            }
+
+            <div class="form-row">
+                @if (_selectedProject.StartDate.HasValue)
+                {
+                    <div>
+                        <div class="form-label">시작일</div>
+                        <div>@_selectedProject.StartDate.Value.ToString("yyyy.MM.dd")</div>
+                    </div>
+                }
+                @if (_selectedProject.EndDate.HasValue)
+                {
+                    <div>
+                        <div class="form-label">완성일</div>
+                        <div>@_selectedProject.EndDate.Value.ToString("yyyy.MM.dd")</div>
+                    </div>
+                }
+            </div>
+
+            @if (!string.IsNullOrEmpty(_selectedProject.PatternName))
+            {
+                <div class="mt-2">
+                    <div class="form-label">도안</div>
+                    <div>@_selectedProject.PatternName</div>
+                    @if (!string.IsNullOrEmpty(_selectedProject.PatternSource))
+                    { <div style="font-size:0.82rem; color:var(--text-mid);">@_selectedProject.PatternSource</div> }
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(_selectedProject.Description))
+            {
+                <div class="mt-2">
+                    <div class="form-label">설명</div>
+                    <p style="white-space:pre-wrap; font-size:0.9rem;">@_selectedProject.Description</p>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(_selectedProject.Memo))
+            {
+                <div class="mt-2">
+                    <div class="form-label">메모</div>
+                    <p style="white-space:pre-wrap; font-size:0.9rem;">@_selectedProject.Memo</p>
+                </div>
+            }
+
+            <div class="modal-footer">
+                <button class="btn btn-danger btn-sm" @onclick="() => DeleteProject(_selectedProject.Id)">삭제</button>
+                <button class="btn btn-ghost" @onclick="CloseDetail">닫기</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    bool _loading = true;
+    bool _showDetail = false;
+    List<KnitProject> _projects = new();
+    KnitProject? _selectedProject;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        _loading = false;
+    }
+
+    async Task LoadData()
+    {
+        var all = await Storage.GetProjectsAsync();
+        _projects = all.Where(p => p.Status == ProjectStatus.완료)
+                       .OrderByDescending(p => p.EndDate)
+                       .ToList();
+    }
+
+    void OpenDetail(KnitProject proj) { _selectedProject = proj; _showDetail = true; }
+    void CloseDetail() { _showDetail = false; _selectedProject = null; }
+
+    async Task DeleteProject(Guid id)
+    {
+        await Storage.DeleteProjectAsync(id);
+        CloseDetail();
+        await LoadData();
+    }
+}

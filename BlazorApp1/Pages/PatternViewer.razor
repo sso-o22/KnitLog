@@ -1,0 +1,362 @@
+@page "/pattern-viewer/{ProjectId:guid}"
+@using KnitLog.Models
+@using KnitLog.Services
+@inject StorageService Storage
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<div style="display:flex; flex-direction:column; height:100vh; overflow:hidden;"
+     @onmousemove="OnGlobalMouseMove"
+     @onmouseup="OnGlobalMouseUp">
+
+    <div style="background:#111111; color:white; padding:6px 12px; display:flex; align-items:center; gap:8px; flex-shrink:0; z-index:100;">
+        <button class="btn-main" @onclick="GoBack" title="뒤로가기">←</button>
+        <div class="divider"></div>
+
+        <div class="tool-group">
+            <button class="tool-btn @(_tool == "select" ? "active" : "")" @onclick='() => SetTool("select")' title="선택">🖱️</button>
+            <button class="tool-btn @(_tool == "pen"    ? "active" : "")" @onclick='() => SetTool("pen")' title="펜">✏️</button>
+            <button class="tool-btn @(_tool == "eraser" ? "active" : "")" @onclick='() => SetTool("eraser")' title="지우개">🧽</button>
+            <button class="tool-btn @(_tool == "ruler"  ? "active" : "")" @onclick='() => SetTool("ruler")' title="자">📏</button>
+        </div>
+
+        <button class="tool-btn" @onclick="UndoLastPath" title="그리기 취소" style="font-size:14px;">↩️</button>
+
+        @if (_tool == "pen" || _tool == "eraser")
+        {
+            <div class="divider"></div>
+            <div style="display:flex; align-items:center; gap:5px;">
+                <span style="font-size:10px;">Size</span>
+                <input type="range" min="2" max="50" @bind="_penSize" style="width:60px; cursor:pointer;" />
+                <span style="font-size:10px; min-width:15px;">@_penSize</span>
+            </div>
+            @if (_tool == "pen")
+            {
+                <div class="divider"></div>
+                <input type="color" value="@_penColor" @oninput="e => _penColor = e.Value?.ToString() ?? _penColor"
+                       style="width:28px; height:28px; border:none; border-radius:50%; padding:2px; cursor:pointer; background:transparent;" title="펜 색상" />
+            }
+        }
+
+        <div class="divider"></div>
+        <label class="btn-sub" title="PDF 불러오기">
+            📄+ <InputFile OnChange="OnPdfSelected" accept="application/pdf" style="display:none;" />
+        </label>
+
+        @if (_pdfLoaded)
+        {
+            <div class="divider"></div>
+            <div class="compact-box">
+                <button class="nav-btn" @onclick="PrevPage" disabled="@(_currentPage <= 1)">‹</button>
+                <span style="font-size:12px; font-weight:600;">@_currentPage/@_totalPages</span>
+                <button class="nav-btn" @onclick="NextPage" disabled="@(_currentPage >= _totalPages)">›</button>
+            </div>
+            <div class="compact-box">
+                <button class="nav-btn" @onclick="ZoomOut">−</button>
+                <span style="font-size:12px; font-weight:600; min-width:35px; text-align:center;">@((int)(_zoom * 100))%</span>
+                <button class="nav-btn" @onclick="ZoomIn">+</button>
+            </div>
+            <button class="tool-btn" @onclick="ClearAll" title="전체 삭제">🗑️</button>
+        }
+        <span style="margin-left:auto; font-size:12px; opacity:0.6; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">@_projectTitle</span>
+    </div>
+
+    <div style="flex:1; overflow:auto; background:#444; display:flex; justify-content:center; padding:20px;">
+        @if (_pdfLoaded)
+        {
+            <div id="canvas-container" style="position:relative; display:inline-block; align-self:flex-start;">
+                <canvas id="pdf-canvas" style="display:block;"></canvas>
+                <canvas id="anno-canvas"
+                        style="position:absolute; top:0; left:0; cursor:@GetCursor();"
+                        @onmousedown="OnCanvasMouseDown">
+                </canvas>
+
+                @foreach (var ruler in _rulers.Where(r => r.Page == _currentPage))
+                {
+                    <div class="ruler-item"
+                         style="position:absolute; left:@(ruler.X)px; top:@(ruler.Y)px; width:@(ruler.Width)px; height:@(ruler.Height)px; background:rgba(@(ruler.ColorRgb), @(ruler.Opacity.ToString("F2", System.Globalization.CultureInfo.InvariantCulture))); border:2px solid rgba(@(ruler.ColorRgb), 0.8);"
+                         @onmousedown="e => OnRulerMouseDown(e, ruler)"
+                         @onmousedown:stopPropagation="true">
+
+                        <div class="ruler-ctrl" @onmousedown:stopPropagation="true" @onclick:stopPropagation="true">
+                            <input type="color" value="@RgbToHex(ruler.ColorRgb)" @oninput="e => UpdateRulerColor(ruler, e)" />
+                            <input type="range" min="10" max="90" step="5" value="@((int)(ruler.Opacity * 100))" @oninput="e => ChangeRulerOpacity(ruler, e)" style="width:50px;" />
+                            <button class="ctrl-btn" @onclick="() => { ruler.Y -= ruler.Height; }">▲</button>
+                            <button class="ctrl-btn" @onclick="() => { ruler.Y += ruler.Height; }">▼</button>
+                            <button class="ctrl-btn del" @onclick="() => _rulers.Remove(ruler)">✕</button>
+                        </div>
+
+                        @if (_tool == "select")
+                        {
+                            <div class="resize-handle" @onmousedown="e => OnResizeMouseDown(e, ruler)" @onmousedown:stopPropagation="true"></div>
+                        }
+                    </div>
+                }
+
+                @if (_isDrawingRuler)
+                {
+                    <div style="position:absolute; left:@(Math.Min(_rulerStartX, _rulerStartX + _previewW))px; top:@(Math.Min(_rulerStartY, _rulerStartY + _previewH))px; width:@(Math.Abs(_previewW))px; height:@(Math.Abs(_previewH))px; border:2px dashed rgba(255,255,255,0.7); pointer-events:none; z-index:20;"></div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    /* ... 이전 CSS 스타일 유지 ... */
+    .divider {
+        width: 1px;
+        height: 16px;
+        background: rgba(255,255,255,0.15);
+        margin: 0 4px;
+    }
+
+    .tool-group {
+        display: flex;
+        background: rgba(0,0,0,0.4);
+        border-radius: 6px;
+        padding: 2px;
+        gap: 1px;
+    }
+
+    .tool-btn {
+        background: transparent;
+        border: none;
+        color: white;
+        width: 34px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+    }
+
+        .tool-btn:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .tool-btn.active {
+            background: rgba(255,255,255,0.18);
+        }
+
+    .compact-box {
+        display: flex;
+        align-items: center;
+        background: rgba(0,0,0,0.3);
+        border-radius: 15px;
+        padding: 0 10px;
+        height: 30px;
+        gap: 6px;
+    }
+
+    .btn-main {
+        background: rgba(255,255,255,0.12);
+        border: 1px solid rgba(255,255,255,0.3);
+        color: white;
+        width: 34px;
+        height: 30px;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+    .btn-main:hover { background: rgba(255,255,255,0.22); }
+
+    .btn-sub {
+        background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.1);
+        color: white;
+        padding: 0 12px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        border-radius: 15px;
+        font-size: 12px;
+        cursor: pointer;
+    }
+
+    .btn-danger {
+        background: transparent;
+        border: none;
+        color: #ff6b6b;
+        font-size: 18px;
+        cursor: pointer;
+        padding: 0 5px;
+    }
+
+    .nav-btn {
+        background: transparent;
+        border: none;
+        color: white;
+        cursor: pointer;
+        font-size: 20px;
+    }
+
+        .nav-btn:disabled {
+            opacity: 0.2;
+        }
+
+    .ruler-item {
+        z-index: 50;
+    }
+
+    .ruler-ctrl {
+        position: absolute;
+        top: -48px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #1e1e1e;
+        padding: 4px 8px;
+        display: flex;
+        gap: 6px;
+        border-radius: 6px;
+        align-items: center;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: 0.2s;
+        z-index: 100;
+    }
+
+        .ruler-item:hover .ruler-ctrl, .ruler-ctrl:hover {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: all;
+        }
+
+        .ruler-ctrl::after {
+            content: '';
+            position: absolute;
+            bottom: -12px;
+            left: 0;
+            width: 100%;
+            height: 12px;
+        }
+
+    .ctrl-btn {
+        background: #333;
+        border: none;
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        cursor: pointer;
+    }
+
+        .ctrl-btn.del {
+            background: rgba(255,255,255,0.18);
+        }
+
+    .resize-handle {
+        position: absolute;
+        right: -5px;
+        bottom: -5px;
+        width: 10px;
+        height: 10px;
+        background: white;
+        border: 2px solid rgba(255,255,255,0.18);
+        border-radius: 50%;
+        cursor: nwse-resize;
+    }
+</style>
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+    string _projectTitle = "", _tool = "select", _penColor = "#000000";
+    int _penSize = 10; // 기본 크기를 조금 더 크게 설정
+    int _currentPage = 1, _totalPages = 1;
+    double _zoom = 1.0;
+    bool _pdfLoaded = false, _isDrawing = false, _isDrawingRuler = false;
+    double _rulerStartX, _rulerStartY, _previewW, _previewH, _dragOffsetX, _dragOffsetY;
+
+    List<RulerOverlay> _rulers = new();
+    RulerOverlay? _draggingRuler, _resizingRuler;
+    DotNetObjectReference<PatternViewer>? _dotNetRef;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var proj = (await Storage.GetProjectsAsync()).FirstOrDefault(p => p.Id == ProjectId);
+        _projectTitle = proj?.Title ?? "Viewer";
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dotNetRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("patternViewer.init", _dotNetRef);
+        }
+    }
+
+    async Task UndoLastPath() => await JS.InvokeVoidAsync("patternViewer.undo");
+
+    async Task OnPdfSelected(InputFileChangeEventArgs e)
+    {
+        using var stream = e.File.OpenReadStream(25 * 1024 * 1024);
+        using var streamRef = new DotNetStreamReference(stream);
+        _pdfLoaded = true; StateHasChanged();
+        await Task.Delay(100);
+        _totalPages = await JS.InvokeAsync<int>("patternViewer.loadPdfFromStream", streamRef, _zoom);
+        StateHasChanged();
+    }
+
+    async Task PrevPage() { if (_currentPage > 1) { _currentPage--; await RenderPage(); } }
+    async Task NextPage() { if (_currentPage < _totalPages) { _currentPage++; await RenderPage(); } }
+    async Task ZoomIn() { _zoom = Math.Min(3.0, _zoom + 0.2); await RenderPage(); }
+    async Task ZoomOut() { _zoom = Math.Max(0.5, _zoom - 0.2); await RenderPage(); }
+    async Task RenderPage() { await JS.InvokeVoidAsync("patternViewer.renderPage", _currentPage, _zoom); StateHasChanged(); }
+
+    async Task OnCanvasMouseDown(MouseEventArgs e)
+    {
+        if (_tool == "ruler") { _isDrawingRuler = true; _rulerStartX = e.OffsetX; _rulerStartY = e.OffsetY; _previewW = 0; _previewH = 0; }
+        else if (_tool == "pen" || _tool == "eraser")
+        {
+            _isDrawing = true;
+            await JS.InvokeVoidAsync("patternViewer.startDraw", e.OffsetX, e.OffsetY, _penColor, _penSize, _tool == "eraser");
+        }
+    }
+
+    async Task OnGlobalMouseMove(MouseEventArgs e)
+    {
+        if (_isDrawingRuler || _draggingRuler != null || _resizingRuler != null || _isDrawing)
+        {
+            var rect = await JS.InvokeAsync<double[]>("patternViewer.getRect");
+            double curX = e.ClientX - rect[0]; double curY = e.ClientY - rect[1];
+            if (_isDrawingRuler) { _previewW = curX - _rulerStartX; _previewH = curY - _rulerStartY; }
+            else if (_draggingRuler != null) { _draggingRuler.X = curX - _dragOffsetX; _draggingRuler.Y = curY - _dragOffsetY; }
+            else if (_resizingRuler != null) { _resizingRuler.Width = Math.Max(30, curX - _resizingRuler.X); _resizingRuler.Height = Math.Max(10, curY - _resizingRuler.Y); }
+            else if (_isDrawing) { await JS.InvokeVoidAsync("patternViewer.draw", curX, curY); }
+            StateHasChanged();
+        }
+    }
+
+    async Task OnGlobalMouseUp(MouseEventArgs e)
+    {
+        if (_isDrawingRuler && Math.Abs(_previewW) > 5) { _rulers.Add(new RulerOverlay { X = _previewW > 0 ? _rulerStartX : _rulerStartX + _previewW, Y = _previewH > 0 ? _rulerStartY : _rulerStartY + _previewH, Width = Math.Abs(_previewW), Height = Math.Abs(_previewH), Page = _currentPage }); }
+        _isDrawing = false; _isDrawingRuler = false; _draggingRuler = null; _resizingRuler = null;
+        if (_pdfLoaded) await JS.InvokeVoidAsync("patternViewer.endDraw");
+        StateHasChanged();
+    }
+
+    async Task OnRulerMouseDown(MouseEventArgs e, RulerOverlay ruler)
+    {
+        if (_tool != "select") return;
+        var rect = await JS.InvokeAsync<double[]>("patternViewer.getRect");
+        _draggingRuler = ruler; _dragOffsetX = (e.ClientX - rect[0]) - ruler.X; _dragOffsetY = (e.ClientY - rect[1]) - ruler.Y;
+    }
+
+    void OnResizeMouseDown(MouseEventArgs e, RulerOverlay ruler) => _resizingRuler = ruler;
+    void UpdateRulerColor(RulerOverlay r, ChangeEventArgs e) => r.ColorRgb = HexToRgb(e.Value?.ToString() ?? "#ffffff");
+    void ChangeRulerOpacity(RulerOverlay r, ChangeEventArgs e) => r.Opacity = (double.TryParse(e.Value?.ToString(), out var v) ? v : 35) / 100.0;
+    string HexToRgb(string hex) { hex = hex.TrimStart('#'); return $"{Convert.ToInt32(hex[..2], 16)},{Convert.ToInt32(hex[2..4], 16)},{Convert.ToInt32(hex[4..6], 16)}"; }
+    string RgbToHex(string rgb) { var p = rgb.Split(','); return $"#{int.Parse(p[0]):X2}{int.Parse(p[1]):X2}{int.Parse(p[2]):X2}"; }
+    void SetTool(string t) => _tool = t;
+    string GetCursor() => _tool switch { "select" => "default", "pen" => "crosshair", "eraser" => "cell", _ => "crosshair" };
+    void ClearAll() { _rulers.Clear(); _ = JS.InvokeVoidAsync("patternViewer.clearAnnotations"); }
+    void GoBack() => Nav.NavigateTo("/schedule/" + ProjectId);
+    public async ValueTask DisposeAsync() { _dotNetRef?.Dispose(); }
+
+    class RulerOverlay { public double X, Y, Width, Height, Opacity = 0.35; public string ColorRgb = "180,220,190"; public int Page; }
+}

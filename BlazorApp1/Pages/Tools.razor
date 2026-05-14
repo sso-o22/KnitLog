@@ -1,0 +1,194 @@
+@* =====================================================================
+   Pages/Tools.razor  —  도구 (바늘) 관리
+   ===================================================================== *@
+@page "/tools"
+@using KnitLog.Models
+@using KnitLog.Services
+@inject StorageService Storage
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">⚒️ 도구</h1>
+        <p class="page-subtitle">보유중인 대바늘 · 코바늘</p>
+    </div>
+    <button class="btn btn-primary" @onclick="OpenAddModal">+ 도구 추가</button>
+</div>
+
+@if (_loading)
+{
+    <div class="loading">불러오는 중...</div>
+}
+else
+{
+    <!-- 탭: 대바늘 / 코바늘 -->
+    <div style="display:flex; gap:8px; margin-bottom:20px;">
+        <button class="btn @(_tab == 0 ? "btn-primary" : "btn-ghost")" @onclick="() => _tab = 0">
+            대바늘 (@KnitCount)
+        </button>
+        <button class="btn @(_tab == 1 ? "btn-primary" : "btn-ghost")" @onclick="() => _tab = 1">
+            코바늘 (@CrochetCount)
+        </button>
+    </div>
+
+    @if (FilteredTools.Count == 0)
+    {
+        <div class="empty-state">
+            <div class="empty-icon">⚒️</div>
+            <p>등록된 도구가 없어요.<br/>바늘 정보를 추가해 보세요!</p>
+        </div>
+    }
+    else
+    {
+        <div class="grid-3">
+            @foreach (var tool in FilteredTools.OrderBy(t => t.SizeMm))
+            {
+                <div class="card">
+                    <div class="flex-between mb-1">
+                        <div class="card-title" style="margin-bottom:0;">
+                            @tool.SizeMm mm
+                        </div>
+                        <span class="badge @(tool.NeedleType == NeedleType.대바늘 ? "badge-progress" : "badge-wish")">
+                            @tool.NeedleType
+                        </span>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(tool.Brand))
+                    {
+                        <div style="font-size:0.85rem; color:var(--text-mid);">@tool.Brand</div>
+                    }
+                    @if (!string.IsNullOrEmpty(tool.Material))
+                    {
+                        <div style="font-size:0.8rem; color:var(--text-light);">소재: @tool.Material</div>
+                    }
+                    @if (tool.NeedleType == NeedleType.대바늘 && tool.LengthCm > 0)
+                    {
+                        <div style="font-size:0.8rem; color:var(--text-light);">길이: @tool.LengthCm cm</div>
+                    }
+                    @if (!string.IsNullOrEmpty(tool.Memo))
+                    {
+                        <div style="font-size:0.8rem; color:var(--text-light); margin-top:4px;">@tool.Memo</div>
+                    }
+
+                    <div class="flex gap-1 mt-2">
+                        <button class="btn btn-secondary btn-sm" @onclick="() => OpenEditModal(tool)">✏️ 수정</button>
+                        <button class="btn btn-danger btn-sm" @onclick="() => DeleteTool(tool.Id)">🗑️</button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+}
+
+<!-- 추가/수정 모달 -->
+@if (_showModal && _editingTool != null)
+{
+    <div class="modal-backdrop" @onclick="CloseModal">
+        <div class="modal" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h2 class="modal-title">@(_editingTool.Id == Guid.Empty ? "도구 추가" : "도구 수정")</h2>
+                <button class="btn btn-ghost btn-sm" @onclick="CloseModal">✕</button>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">종류 *</label>
+                <div style="display:flex; gap:12px;">
+                    <label style="cursor:pointer; display:flex; align-items:center; gap:6px;">
+                        <input type="radio" name="needleType" checked="@(_editingTool.NeedleType == NeedleType.대바늘)"
+                               @onchange="() => _editingTool.NeedleType = NeedleType.대바늘" />
+                        대바늘
+                    </label>
+                    <label style="cursor:pointer; display:flex; align-items:center; gap:6px;">
+                        <input type="radio" name="needleType" checked="@(_editingTool.NeedleType == NeedleType.코바늘)"
+                               @onchange="() => _editingTool.NeedleType = NeedleType.코바늘" />
+                        코바늘
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">굵기 (mm) *</label>
+                    <input type="number" class="form-control" @bind="_editingTool.SizeMm"
+                           step="0.25" min="0.5" max="30" placeholder="예: 3.5" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">브랜드</label>
+                    <input class="form-control" @bind="_editingTool.Brand" placeholder="예: 클로버, KnitPro" />
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">소재</label>
+                    <input class="form-control" @bind="_editingTool.Material" placeholder="예: 대나무, 알루미늄, 스테인리스" />
+                </div>
+                @if (_editingTool.NeedleType == NeedleType.대바늘)
+                {
+                    <div class="form-group">
+                        <label class="form-label">길이 (cm)</label>
+                        <input type="number" class="form-control" @bind="_editingTool.LengthCm" min="0" placeholder="예: 35" />
+                    </div>
+                }
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">메모</label>
+                <textarea class="form-control" rows="2" @bind="_editingTool.Memo" placeholder="기타 메모"></textarea>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-ghost" @onclick="CloseModal">취소</button>
+                <button class="btn btn-primary" @onclick="SaveTool">저장</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    bool _loading = true;
+    bool _showModal = false;
+    int _tab = 0; // 0 = 대바늘, 1 = 코바늘
+    List<KnitTool> _tools = new();
+    KnitTool? _editingTool;
+
+    int KnitCount    => _tools.Count(t => t.NeedleType == NeedleType.대바늘);
+    int CrochetCount => _tools.Count(t => t.NeedleType == NeedleType.코바늘);
+
+    List<KnitTool> FilteredTools => _tools
+        .Where(t => t.NeedleType == (_tab == 0 ? NeedleType.대바늘 : NeedleType.코바늘))
+        .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tools = await Storage.GetToolsAsync();
+        _loading = false;
+    }
+
+    void OpenAddModal()
+    {
+        _editingTool = new KnitTool
+        {
+            Id = Guid.Empty,
+            NeedleType = _tab == 0 ? NeedleType.대바늘 : NeedleType.코바늘
+        };
+        _showModal = true;
+    }
+
+    void OpenEditModal(KnitTool tool) { _editingTool = tool; _showModal = true; }
+    void CloseModal() { _showModal = false; _editingTool = null; }
+
+    async Task SaveTool()
+    {
+        if (_editingTool == null || _editingTool.SizeMm <= 0) return;
+        if (_editingTool.Id == Guid.Empty) _editingTool.Id = Guid.NewGuid();
+        await Storage.SaveToolAsync(_editingTool);
+        _tools = await Storage.GetToolsAsync();
+        CloseModal();
+    }
+
+    async Task DeleteTool(Guid id)
+    {
+        await Storage.DeleteToolAsync(id);
+        _tools = await Storage.GetToolsAsync();
+    }
+}

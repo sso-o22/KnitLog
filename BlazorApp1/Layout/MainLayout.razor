@@ -1,0 +1,60 @@
+@* =====================================================================
+   MainLayout.razor  —  전체 레이아웃 (사이드바 + 콘텐츠)
+   ===================================================================== *@
+@inherits LayoutComponentBase
+
+<div class="app-shell">
+    <nav class="sidebar">
+        <div class="sidebar-brand">
+            <span class="brand-icon">🧶</span>
+            <span class="brand-name">니트로그</span>
+        </div>
+
+        <ul class="nav-list">
+            <li>
+                <NavLink href="" Match="NavLinkMatch.All" class="nav-item">
+                    <span class="nav-icon">🏠</span>
+                    <span>홈</span>
+                </NavLink>
+            </li>
+            <li>
+                <NavLink href="schedule" class="nav-item">
+                    <span class="nav-icon">📆</span>
+                    <span>뜨케줄</span>
+                </NavLink>
+            </li>
+            <li>
+                <NavLink href="finished" class="nav-item">
+                    <span class="nav-icon">✅</span>
+                    <span>완성작</span>
+                </NavLink>
+            </li>
+            <li>
+                <NavLink href="wishlist" class="nav-item">
+                    <span class="nav-icon">💫</span>
+                    <span>위시리스트</span>
+                </NavLink>
+            </li>
+            <li>
+                <NavLink href="yarns" class="nav-item">
+                    <span class="nav-icon">🧵</span>
+                    <span>실 장고</span>
+                </NavLink>
+            </li>
+            <li>
+                <NavLink href="tools" class="nav-item">
+                    <span class="nav-icon">⚒️</span>
+                    <span>도구</span>
+                </NavLink>
+            </li>
+        </ul>
+
+        <div class="sidebar-footer">
+            <small>나만의 뜨개 기록</small>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        @Body
+    </main>
+</div>
