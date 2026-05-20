@@ -1,7 +1,7 @@
 {
   "mainAssemblyName": "BlazorApp1",
   "resources": {
-    "hash": "sha256-W3y5IAXawtroYrq8Qi1gfx3RptQIoOqaaX8LYQwz4jY=",
+    "hash": "sha256-PsewyRikS1bIBR6EzCZHPZ/TfxwdT3AokwBeGfve7mc=",
     "jsModuleNative": {
       "dotnet.native.js": "sha256-sn/g61GjVPhViOYQDkq1OMlk0eyS9r2Hi0qgU2o0HIU="
     },
@@ -53,7 +53,7 @@
       "System.Text.RegularExpressions.wasm": "sha256-6lTM5rK99dTveKD7N9enrJEr67CxhLZgBg3Jkk0mIgo=",
       "System.wasm": "sha256-T4iprIGorUAo1X44AS78i81rjTVY995cbd5O+yc1VDY=",
       "System.Private.CoreLib.wasm": "sha256-+a/fzNQuyZ7URfEX/BuyAKW1n3rEv7hIB0RGpk+QbUY=",
-      "BlazorApp1.wasm": "sha256-lrTxU9OID0YauernNhW65BR8alpEmgVV0I0EjKqP/S0="
+      "BlazorApp1.wasm": "sha256-dDlXRLnRUY86sPXKFomSZGYPL7PfYwYizjIpKlL+W2U="
     }
   },
   "cacheBootResources": true,
