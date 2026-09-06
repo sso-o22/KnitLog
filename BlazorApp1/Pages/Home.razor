@@ -16,6 +16,37 @@
     </div>
 </div>
 
+@* ── 오픈 1개월 기념 이벤트 팝업 (2026-09-04 ~ 2026-09-18 한정) ── *@
+@if (_showEventPopup)
+{
+    <div style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:20px;"
+         @onclick="CloseEventPopup">
+        <div style="background:var(--white);border-radius:20px;max-width:420px;width:100%;max-height:90vh;overflow-y:auto;position:relative;box-shadow:0 12px 40px rgba(0,0,0,0.25);"
+             @onclick:stopPropagation="true">
+            <button @onclick="CloseEventPopup" style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,0.35);border:none;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:1;">
+                <img src="icons/x.svg" class="icon-line" style="width:14px;height:14px;filter:invert(1);" />
+            </button>
+            <img src="images/event-202609.png" alt="니트데이 오픈 1개월 기념 이벤트" style="width:100%;display:block;border-radius:20px 20px 0 0;" />
+            <div style="padding:18px 20px 20px;">
+                <p style="font-size:0.85rem;color:var(--text-mid);line-height:1.6;margin:0 0 14px;">
+                    문어발 화면을 캡처해서 스토리에 @@knitday.app 태그하고 참여해보세요!
+                    추첨을 통해 1년 이용권, 이용 기간 연장, 도안 선물을 드려요. (9/4 ~ 9/18)
+                </p>
+                <a href="https://www.instagram.com/knitday.app" target="_blank" rel="noopener"
+                   class="btn btn-primary" style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;text-decoration:none;"
+                   @onclick="CloseEventPopup">
+                    <img src="icons/instagram-logo.svg" class="icon-line" style="width:16px;height:16px;filter:invert(1);" />
+                    인스타그램에서 자세히 보기
+                </a>
+                <label style="display:flex;align-items:center;gap:6px;margin-top:12px;font-size:0.78rem;color:var(--text-light);cursor:pointer;">
+                    <input type="checkbox" @bind="_dontShowEventAgain" />
+                    다시 보지 않기
+                </label>
+            </div>
+        </div>
+    </div>
+}
+
 @* ── 로그인 배너 (프리미엄 활성화 시에만 표시) ── *@
 @if (_isPremium)
 {
@@ -732,6 +763,28 @@ else
         }
         _authLoading = false;
         await LoadDataAsync();
+        await CheckEventPopupAsync();
+    }
+
+    // ── 오픈 1개월 기념 이벤트 팝업 (2026-09-04 ~ 2026-09-18 한정) ──
+    bool _showEventPopup = false;
+    bool _dontShowEventAgain = false;
+    const string EventPopupKey = "event_202609_dismissed";
+    async Task CheckEventPopupAsync()
+    {
+        var start = new DateTime(2026, 9, 4);
+        var end = new DateTime(2026, 9, 19); // 18일 자정까지 포함되도록 다음날로 설정
+        if (DateTime.Today < start || DateTime.Today >= end) return;
+        var dismissed = await JS.InvokeAsync<string?>("localStorage.getItem", EventPopupKey);
+        if (dismissed == "true") return;
+        _showEventPopup = true;
+    }
+
+    async Task CloseEventPopup()
+    {
+        _showEventPopup = false;
+        if (_dontShowEventAgain)
+            await JS.InvokeVoidAsync("localStorage.setItem", EventPopupKey, "true");
     }
 
     // 데이터 로딩 로직을 별도 메서드로 분리

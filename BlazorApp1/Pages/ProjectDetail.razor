@@ -2101,11 +2101,27 @@ else
     void DragLeave(string card) { if (_dragOver == card) _dragOver = ""; }
 
     // ── 카운터 ──────────────────────────────────────────
+    CancellationTokenSource? _counterSaveCts;
     async Task CounterChange(ProjectCounter counter, int delta)
     {
         counter.Value = Math.Max(0, counter.Value + delta);
         if (delta > 0) counter.LastUpdatedAt = DateTime.Now;
-        await Save();
+        StateHasChanged(); // 화면 숫자는 즉시 반영
+
+        // 카운터는 뜨개질 중 수백 번씩 눌릴 수 있어서, 누를 때마다 바로 저장하면
+        // Firestore 쓰기가 과도하게 나감 (전체 프로젝트 목록을 매번 다시 씀).
+        // 그래서 짧게 멈췄을 때만 한 번 저장되도록 디바운스 처리.
+        _counterSaveCts?.Cancel();
+        _counterSaveCts?.Dispose();
+        _counterSaveCts = new CancellationTokenSource();
+        var token = _counterSaveCts.Token;
+        try
+        {
+            await Task.Delay(1200, token);
+            if (!token.IsCancellationRequested && _project != null)
+                await Storage.SaveProjectAsync(_project);
+        }
+        catch (TaskCanceledException) { }
     }
 
     async Task ResetCounter(ProjectCounter counter)
@@ -2463,6 +2479,7 @@ else
     {
         Storage.OnSyncCompleted -= OnSyncCompletedHandler;
         StopRefreshTimer();
+        _counterSaveCts?.Cancel(); // 대기 중인 카운터 디바운스 저장 취소 (아래에서 어차피 한 번 더 저장함)
         // 페이지 이동 시 진행 중인 세션 상태 IDB에 확실히 저장
         if (_project != null)
             try { await Storage.SaveProjectAsync(_project); } catch { }

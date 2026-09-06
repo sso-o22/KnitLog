@@ -15,9 +15,7 @@
 
 <div class="settings-wrapper">
 
-    <!-- 계정 (프리미엄 전용) -->
-    @if (_isPremium || Auth.IsLoggedIn)
-    {
+    <!-- 계정 -->
     <div class="card">
         <div class="card-title" style="margin-bottom:4px; display:flex; align-items:center; gap:6px;">
             @if (Auth.IsLoggedIn)
@@ -29,7 +27,10 @@
                 <img src="icons/user.svg" class="icon-line" style="width:20px;height:20px;flex-shrink:0;" />
             }
             계정
-            <span style="margin-left:auto; font-size:0.7rem; font-weight:700; letter-spacing:0.04em; padding:2px 8px; border-radius:99px; background:var(--theme-active); color:var(--white);">PREMIUM</span>
+            @if (_isPremium || Auth.IsLoggedIn)
+            {
+                <span style="margin-left:auto; font-size:0.7rem; font-weight:700; letter-spacing:0.04em; padding:2px 8px; border-radius:99px; background:var(--theme-active); color:var(--white);">PREMIUM</span>
+            }
         </div>
         @if (Auth.IsLoggedIn)
         {
@@ -102,10 +103,38 @@
                     <span>@_cachedGraceMessage</span>
                 </div>
             }
-            <button class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;" @onclick="SignIn"><img src="icons/key.svg" class="icon-line" style="width:15px;height:15px;flex-shrink:0;" />구글 로그인</button>
+            @if (!_showInlineCode)
+            {
+                <button class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;" @onclick="() => _showInlineCode = true"><img src="icons/key.svg" class="icon-line" style="width:15px;height:15px;flex-shrink:0;" />로그인</button>
+            }
+            else
+            {
+                <p style="font-size:0.82rem; color:var(--text-mid); margin-bottom:8px;">프리미엄 코드를 입력해주세요.</p>
+                <div style="display:flex; gap:8px; margin-bottom:10px;">
+                    <input id="premium-code-input" type="text"
+                           placeholder="XXXX-XXXX-XXXX-XXXX"
+                           maxlength="19"
+                           autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
+                           value="@_premiumCodeDisplay"
+                           @oninput="OnPremiumCodeInput"
+                           @onkeydown="OnPremiumCodeKeyDown"
+                           style="flex:1; min-width:0; padding:9px 12px; border:1.5px solid var(--border); border-radius:var(--radius-sm); font-size:0.88rem; background:var(--white); color:var(--text-dark); letter-spacing:0.1em; font-family:monospace;" />
+                    <button class="btn btn-primary" @onclick="ActivatePremiumAndSignIn" disabled="@_signingIn">@(_signingIn ? "확인 중..." : "확인")</button>
+                </div>
+                @if (!string.IsNullOrEmpty(_premiumMsg))
+                {
+                    <div style="margin-top:0; margin-bottom:10px; font-size:0.82rem; color:@(_premiumError ? "#c03030" : "var(--theme-active)");">@_premiumMsg</div>
+                }
+            }
+            <div style="margin-top:10px;">
+                <a href="https://smartstore.naver.com/knitday_studio" target="_blank" rel="noopener noreferrer"
+                   @onclick='() => JS.InvokeVoidAsync("knitAnalytics.log", "license_purchase_click", (string?)null)'
+                   style="display:inline-flex;align-items:center;gap:6px;font-size:0.82rem;color:var(--text-light);text-decoration:none;">
+                    <img src="icons/storefront.svg" class="icon-line" style="width:14px;height:14px;flex-shrink:0;" />아직 이용권이 없으신가요? 네이버 스토어에서 구매하기
+                </a>
+            </div>
         }
     </div>
-    } @* _isPremium || IsLoggedIn *@
 
     @if (!Auth.IsLoggedIn)
     {
@@ -385,46 +414,6 @@
             <div style="font-size:0.85rem; color:var(--text-light);">버전 정보를 불러오는 중...</div>
         }
     </div>
-
-    <!-- 프리미엄 코드 (로그인 상태에서는 불필요) -->
-    @if (!Auth.IsLoggedIn)
-    {
-    <div class="card">
-        <div class="card-title" style="margin-bottom:4px; display:flex; align-items:center; gap:6px;">
-            <img src="icons/key.svg" class="icon-line" style="width:20px;height:20px;flex-shrink:0;" />
-            @(_isPremium ? "프리미엄 활성화됨" : "프리미엄 코드 입력")
-        </div>
-        @if (_isPremium)
-        {
-            <p style="font-size:0.85rem; color:var(--text-mid); margin-bottom:12px;">기기간 동기화 기능이 활성화되어 있어요.</p>
-            <button class="btn btn-ghost" style="font-size:0.82rem; color:var(--text-light);" @onclick="DeactivatePremium">비활성화</button>
-        }
-        else
-        {
-            <p style="font-size:0.85rem; color:var(--text-mid); margin-bottom:12px;">프리미엄 코드를 입력하면 구글 로그인 및 기기간 동기화 기능을 사용할 수 있어요.</p>
-            <div style="display:flex; gap:8px; margin-bottom:10px;">
-                <input id="premium-code-input" type="text"
-                       placeholder="XXXX-XXXX-XXXX-XXXX"
-                       maxlength="19"
-                       autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
-                       value="@_premiumCodeDisplay"
-                       @oninput="OnPremiumCodeInput"
-                       @onkeydown="OnPremiumCodeKeyDown"
-                       style="flex:1; min-width:0; padding:9px 12px; border:1.5px solid var(--border); border-radius:var(--radius-sm); font-size:0.88rem; background:var(--white); color:var(--text-dark); letter-spacing:0.1em; font-family:monospace;" />
-                <button class="btn btn-primary" @onclick="ActivatePremium">확인</button>
-            </div>
-            @if (!string.IsNullOrEmpty(_premiumMsg))
-            {
-                <div style="margin-top:0; margin-bottom:10px; font-size:0.82rem; color:@(_premiumError ? "#c03030" : "var(--theme-active)");">@_premiumMsg</div>
-            }
-            <a href="https://smartstore.naver.com/knitday_studio" target="_blank" rel="noopener noreferrer"
-               @onclick='() => JS.InvokeVoidAsync("knitAnalytics.log", "license_purchase_click", (string?)null)'
-               style="display:inline-flex;align-items:center;gap:6px;font-size:0.82rem;color:var(--text-light);text-decoration:none;">
-                <img src="icons/storefront.svg" class="icon-line" style="width:14px;height:14px;flex-shrink:0;" />네이버 스토어에서 구매하기
-            </a>
-        }
-    </div>
-    }
 
     <!-- 자주 묻는 질문 -->
     <div class="card">
@@ -1437,6 +1426,34 @@
         Auth.OnAuthChanged -= OnAuthChangedHandler;
     }
 
+    bool _showInlineCode = false;
+    bool _signingIn = false;
+
+    async Task ActivatePremiumAndSignIn()
+    {
+        var code = _premiumCodeInput.Replace("-", "").Trim();
+        var codeWithDashes = FormatPremiumCode(code);
+        if (_validCodes.Contains(code) || _validCodes.Contains(codeWithDashes))
+        {
+            _isPremium = true;
+            await JS.InvokeVoidAsync("localStorage.setItem", "knitday_premium", "1");
+            _premiumMsg = "";
+            _premiumError = false;
+            _premiumCodeInput = "";
+            _premiumCodeDisplay = "";
+            _signingIn = true;
+            StateHasChanged();
+            await SignIn();
+            _signingIn = false;
+        }
+        else
+        {
+            _premiumMsg = "올바른 코드가 아니에요.";
+            _premiumError = true;
+        }
+        StateHasChanged();
+    }
+
     async Task SignIn()
     {
         await Auth.SignInWithGoogleAsync();
@@ -1627,7 +1644,7 @@
 
     void OnPremiumCodeKeyDown(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter") _ = ActivatePremium();
+        if (e.Key == "Enter") _ = ActivatePremiumAndSignIn();
     }
 
     async Task DeactivatePremium()
