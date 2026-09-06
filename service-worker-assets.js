@@ -1,5 +1,5 @@
 self.assetsManifest = {
-  "version": "OC35GDr9",
+  "version": "Jhfyfmn8",
   "assets": [
     {
       "hash": "sha256-OEk/nNAi+lNWDSdgVJwDvTQrWaeYfQWlQYdE+m/8wG8=",
@@ -10,7 +10,7 @@ self.assetsManifest = {
       "url": "BlazorApp1.styles.css"
     },
     {
-      "hash": "sha256-64LA+kAa04ee0aYYa5pysccE7dard7GdGR6MFm1rnCE=",
+      "hash": "sha256-z0FxvFjsTUaA7MOwk0ZRE0OXwKAKhE8I+PcX3fk+7Ts=",
       "url": "_framework/BlazorApp1.wasm"
     },
     {
@@ -142,7 +142,7 @@ self.assetsManifest = {
       "url": "_framework/System.Runtime.InteropServices.JavaScript.wasm"
     },
     {
-      "hash": "sha256-sfb7nNXyApj/c9gzp4Sj3zQojjiQ6GE1JQSJo6vxGX8=",
+      "hash": "sha256-KQv0ODquwCTEZ2asIU7M4jm53/NGqlZ/Iw7V7FIM5wc=",
       "url": "_framework/System.Runtime.wasm"
     },
     {
@@ -166,7 +166,7 @@ self.assetsManifest = {
       "url": "_framework/System.wasm"
     },
     {
-      "hash": "sha256-yfCvSjr3Ok3MoaE3OucLRMIQTrT7h2nzbL7XRYTyBb0=",
+      "hash": "sha256-HyaR4rqZHLZ6mXd0l0UM8BTlIwxaOZ0pHjt4IejaCb4=",
       "url": "_framework/blazor.boot.json"
     },
     {
@@ -916,6 +916,10 @@ self.assetsManifest = {
     {
       "hash": "sha256-s2wuD2nr8rZE1hK7uE5acivG9ZRmcXtttIx9Hp+YAjE=",
       "url": "icons/youtube-logo.svg"
+    },
+    {
+      "hash": "sha256-woCAq7o+Bq/J+PDj2k7ynRyi2FEU/KtJjunRVk+uxrM=",
+      "url": "images/event-202609.png"
     },
     {
       "hash": "sha256-dS8RxH4mpw0rAaskD/+U3Rj3oNgVR7ur/SZQt1dQG9c=",
@@ -2594,7 +2598,7 @@ self.assetsManifest = {
       "url": "sitemap.xml"
     },
     {
-      "hash": "sha256-wrh125NDYk1d+6zR/f79foe3MfBC5ahH13oXKhw+ehI=",
+      "hash": "sha256-LhOtvxhk5P9wnzzSsdUw7SKi4gFFnBGETmNlzG1SWZo=",
       "url": "version.json"
     }
   ]
