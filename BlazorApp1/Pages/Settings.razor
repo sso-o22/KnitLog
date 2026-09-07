@@ -27,10 +27,7 @@
                 <img src="icons/user.svg" class="icon-line" style="width:20px;height:20px;flex-shrink:0;" />
             }
             계정
-            @if (_isPremium || Auth.IsLoggedIn)
-            {
-                <span style="margin-left:auto; font-size:0.7rem; font-weight:700; letter-spacing:0.04em; padding:2px 8px; border-radius:99px; background:var(--theme-active); color:var(--white);">PREMIUM</span>
-            }
+            <span style="margin-left:auto; font-size:0.7rem; font-weight:700; letter-spacing:0.04em; padding:2px 8px; border-radius:99px; background:var(--theme-active); color:var(--white);">PREMIUM</span>
         </div>
         @if (Auth.IsLoggedIn)
         {
